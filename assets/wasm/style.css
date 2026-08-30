@@ -605,10 +605,13 @@ body.windowed-mode .github-embed {
 }
 
 /* Make canvas fill the wrapper */
-.emscripten { 
+.emscripten {
     width: 100%;
     height: 100%;
     display: block;
+    /* Let our own touch handlers (pinch-to-zoom) drive the canvas instead
+       of the browser's native pinch/scroll gestures. */
+    touch-action: none;
 }
 
 /* Console Styles */
