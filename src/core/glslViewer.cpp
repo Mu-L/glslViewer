@@ -1955,6 +1955,21 @@ void GlslViewer::loadAssets(WatchFileList &_files) {
 
     // LOAD GEOMETRY
     // -----------------------------------------------
+    // This auto-fit always targets the interactive "default" camera, never
+    // whatever uniforms.activeCamera happens to be. loadAssets() isn't only
+    // called once at startup (when activeCamera is guaranteed to still be
+    // "default") -- the WASM loadAsset() API (main.cpp's loadFile()) reruns
+    // the whole function once per geometry file added, and by the second
+    // call activeCamera may already be a raw per-view camera selected from a
+    // loaded camera.csv (see selectCamera() below). setTarget()/orbit() both
+    // mutate the camera in place, so aiming them at that pristine object
+    // would silently overwrite its true recorded pose with this generic
+    // bounding-box fit -- exactly the bug that made a multi-geometry export
+    // (e.g. splat_strokes + lines) render with the camera at the wrong
+    // distance in the browser while the native single-call path (and thus
+    // make_poster) stayed correct. Mirrors the same guard already used in
+    // startCameraAnimation().
+    vera::Camera* fitCamera = uniforms.cameras["default"];
     if (hasGeometry()) {
         // Load every geometry file, namespacing each by its own prefix so a mix
         // of meshes, point clouds and splats can coexist in the same scene.
@@ -1967,16 +1982,17 @@ void GlslViewer::loadAssets(WatchFileList &_files) {
         }
 
         m_sceneRender.loadScene(uniforms);
-        uniforms.activeCamera->setTarget(m_sceneRender.getCenter());
+        fitCamera->setTarget(m_sceneRender.getCenter());
 
         // Splats look better a bit closer; if any splat is present bias in.
         float dist = m_sceneRender.getArea() * (anySplat ? 1.5 : 2.0);
-        uniforms.activeCamera->orbit(m_camera_azimuth, m_camera_elevation, dist);
+        fitCamera->orbit(m_camera_azimuth, m_camera_elevation, dist);
     }
     else {
         m_canvas_shader.addDefine("MODEL_VERTEX_TEXCOORD", "v_texcoord");
-        uniforms.activeCamera->orbit(m_camera_azimuth, m_camera_elevation, 2.0);
+        fitCamera->orbit(m_camera_azimuth, m_camera_elevation, 2.0);
     }
+    uniforms.activeCamera = fitCamera;
 
     // If a COLMAP scene was loaded (camera.csv), look through its first
     // camera by default instead of the auto-fit view above. selectCamera()
