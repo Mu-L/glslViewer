@@ -13,6 +13,38 @@ set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+option(WAYLAND "Build the GLFW desktop backend with Wayland and without X11" OFF)
+
+if (WAYLAND AND (WIN32 OR APPLE))
+    message(FATAL_ERROR "WAYLAND is only supported on Unix platforms")
+endif()
+
+if (UNIX AND NOT APPLE AND NOT WAYLAND AND NOT NO_X11 AND NOT FORCE_DRM)
+    find_package(X11 QUIET)
+    if (NOT X11_FOUND OR
+        NOT X11_Xrandr_INCLUDE_PATH OR
+        NOT X11_Xinerama_INCLUDE_PATH OR
+        NOT X11_Xkb_INCLUDE_PATH OR
+        NOT X11_Xcursor_INCLUDE_PATH OR
+        NOT X11_Xi_INCLUDE_PATH OR
+        NOT X11_Xshape_INCLUDE_PATH)
+        find_program(WAYLAND_SCANNER_EXECUTABLE NAMES wayland-scanner)
+        if (WAYLAND_SCANNER_EXECUTABLE)
+            set(WAYLAND ON)
+            message(STATUS "X11 libraries not found; using the Wayland backend")
+        endif()
+    endif()
+endif()
+
+if (WAYLAND)
+    find_program(WAYLAND_SCANNER_EXECUTABLE NAMES wayland-scanner)
+    if (NOT WAYLAND_SCANNER_EXECUTABLE)
+        message(FATAL_ERROR "WAYLAND requires wayland-scanner; install the libwayland-dev package")
+    endif()
+    set(GLFW_BUILD_X11 OFF CACHE BOOL "Build support for X11" FORCE)
+    set(GLFW_BUILD_WAYLAND ON CACHE BOOL "Build support for Wayland" FORCE)
+endif()
+
 # The compiled vera
 add_subdirectory(deps)
 
